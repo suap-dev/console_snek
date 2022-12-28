@@ -9,7 +9,7 @@ fn main() {
 
     let mut snek = Snek::hatch(10, 10);
 
-    for i in 0..100 {
+    for _ in 0..100 {
         snek.slither(&mut engine);
         snek.draw(&mut engine);
         engine.update_frame();
@@ -30,31 +30,30 @@ enum Direction {
 }
 
 #[derive(Clone)]
-struct Pixel {
+struct BodyPart {
     l_char: char,
     r_char: char,
     // fg_color: Color,
-    bg_color: Color,
+    color: Color,
     position: Position,
 }
-impl Pixel {
-    fn new(
-        l_char: char,
-        r_char: char,
-        /*fg_color: Color,*/ bg_color: Color,
-        position: Position,
-    ) -> Self {
-        Pixel {
-            l_char,
-            r_char,
+const L: char = '[';
+const R: char = ']';
+const HEAD_COLOR: Color = Color::DarkRed;
+const BODY_COLOR: Color = Color::Red;
+impl BodyPart {
+    fn new(position: Position) -> Self {
+        BodyPart {
+            l_char: L,
+            r_char: R,
             // fg_color,
-            bg_color,
+            color: BODY_COLOR,
             position,
         }
     }
 
-    fn bg(&mut self, bg_color: Color) {
-        self.bg_color = bg_color;
+    fn color(&mut self, color: Color) {
+        self.color = color;
     }
 
     fn pos(&mut self, position: Position) {
@@ -63,33 +62,21 @@ impl Pixel {
 }
 
 struct Snek {
-    body: Vec<Pixel>,
+    body: Vec<BodyPart>,
     head: Position,
     direction: Direction,
 }
-const HEAD_COLOR: Color = Color::DarkRed;
-const BODY_COLOR: Color = Color::Red;
 const INITIAL_LENGTH: i32 = 3;
-const L: char = '[';
-const R: char = ']';
 impl Snek {
     fn hatch(x: i32, y: i32) -> Self {
+        let mut body: Vec<BodyPart> = Vec::new();
 
-        let mut body: Vec<Pixel> = Vec::new();
-        let head = Pixel::new(
-            L,
-            R,
-            // Color::Black,
-            HEAD_COLOR,
-            Position { x, y },
-        );
-        let mut body_part = head.clone();
-        body_part.bg(BODY_COLOR);
+        for _ in 0..INITIAL_LENGTH {
+            let body_part = BodyPart::new(Position { x, y });
+            body.push(body_part);
+        }
 
-        body.push(head);
-        body.push(body_part.clone());
-        body.push(body_part);
-        // body.push(Pixel::from(head, BODY_COLOR));
+        body[0].color(HEAD_COLOR);
 
         Snek {
             body,
@@ -122,9 +109,9 @@ impl Snek {
         }
 
         new.pos(self.head);
-        new.bg(HEAD_COLOR);
+        new.color(HEAD_COLOR);
         for part in &mut self.body {
-            part.bg(BODY_COLOR)
+            part.color(BODY_COLOR)
         }
         self.body.insert(0, new);
     }
@@ -144,14 +131,14 @@ impl Engine {
         Engine { c_engine }
     }
 
-    fn draw_pixel(&mut self, pixel: &Pixel) {
+    fn draw_pixel(&mut self, pixel: &BodyPart) {
         self.set_pxl(pixel.position.x, pixel.position.y, &pixel);
     }
 
-    fn set_pxl(&mut self, mut x: i32, y: i32, pixel: &Pixel) {
+    fn set_pxl(&mut self, mut x: i32, y: i32, pixel: &BodyPart) {
         x *= 2;
-        let l = console_engine::pixel::pxl_bg(pixel.l_char, pixel.bg_color);
-        let r = console_engine::pixel::pxl_bg(pixel.r_char, pixel.bg_color);
+        let l = console_engine::pixel::pxl_bg(pixel.l_char, pixel.color);
+        let r = console_engine::pixel::pxl_bg(pixel.r_char, pixel.color);
         self.c_engine.set_pxl(x, y, l);
         self.c_engine.set_pxl(x + 1, y, r);
     }
