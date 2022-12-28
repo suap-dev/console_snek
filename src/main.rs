@@ -5,7 +5,7 @@ use std::default;
 use std::vec::Vec;
 
 fn main() {
-    let mut engine = Engine::from(ConsoleEngine::init_fill(10).unwrap());
+    let mut engine = Engine::from(ConsoleEngine::init_fill(8).unwrap());
 
     let mut snek = Snek::hatch(10, 10);
 
@@ -20,6 +20,13 @@ fn main() {
 struct Position {
     x: i32,
     y: i32,
+}
+
+enum Direction {
+    Up,
+    Down,
+    Right,
+    Left,
 }
 
 #[derive(Clone)]
@@ -58,13 +65,15 @@ impl Pixel {
 struct Snek {
     body: Vec<Pixel>,
     head: Position,
+    direction: Direction,
 }
+const HEAD_COLOR: Color = Color::DarkRed;
+const BODY_COLOR: Color = Color::Red;
+const INITIAL_LENGTH: i32 = 3;
+const L: char = '[';
+const R: char = ']';
 impl Snek {
     fn hatch(x: i32, y: i32) -> Self {
-        const HEAD_COLOR: Color = Color::Red;
-        const BODY_COLOR: Color = Color::DarkRed;
-        const L: char = '[';
-        const R: char = ']';
 
         let mut body: Vec<Pixel> = Vec::new();
         let head = Pixel::new(
@@ -78,30 +87,46 @@ impl Snek {
         body_part.bg(BODY_COLOR);
 
         body.push(head);
+        body.push(body_part.clone());
         body.push(body_part);
         // body.push(Pixel::from(head, BODY_COLOR));
 
-        Snek { body, head: Position{x,y} }
+        Snek {
+            body,
+            head: Position { x, y },
+            direction: Direction::Right,
+        }
     }
 
     fn slither(&mut self, engine: &mut Engine) {
         let mut new = self.body.pop().unwrap();
-        self.head.x+=1;
-        new.pos(self.head);
-        self.body.insert(0, new);
 
-        if engine.is_key_held(KeyCode::Left) {
-            
+        if engine.is_key_pressed(KeyCode::Left) {
+            self.direction = Direction::Left;
         }
-        if engine.is_key_held(KeyCode::Right) {
-            
+        if engine.is_key_pressed(KeyCode::Right) {
+            self.direction = Direction::Right;
         }
-        if engine.is_key_held(KeyCode::Up) {
-            
+        if engine.is_key_pressed(KeyCode::Up) {
+            self.direction = Direction::Up;
         }
-        if engine.is_key_held(KeyCode::Down) {
-            
+        if engine.is_key_pressed(KeyCode::Down) {
+            self.direction = Direction::Down;
         }
+
+        match self.direction {
+            Direction::Up => self.head.y -= 1,
+            Direction::Down => self.head.y += 1,
+            Direction::Right => self.head.x += 1,
+            Direction::Left => self.head.x -= 1,
+        }
+
+        new.pos(self.head);
+        new.bg(HEAD_COLOR);
+        for part in &mut self.body {
+            part.bg(BODY_COLOR)
+        }
+        self.body.insert(0, new);
     }
 
     fn draw(&self, engine: &mut Engine) {
@@ -137,7 +162,7 @@ impl Engine {
         self.c_engine.clear_screen();
     }
 
-    fn is_key_held(&mut self, key: KeyCode) -> bool {
-        self.c_engine.is_key_held(key)
+    fn is_key_pressed(&mut self, key: KeyCode) -> bool {
+        self.c_engine.is_key_pressed(key)
     }
 }
