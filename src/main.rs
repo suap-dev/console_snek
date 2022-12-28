@@ -94,7 +94,7 @@ impl Snek {
         if engine.is_key_pressed(KeyCode::Up) && self.direction != Direction::Down {
             self.direction = Direction::Up;
         }
-        if engine.is_key_pressed(KeyCode::Down) && self.direction != Direction::UP {
+        if engine.is_key_pressed(KeyCode::Down) && self.direction != Direction::Up {
             self.direction = Direction::Down;
         }
 
