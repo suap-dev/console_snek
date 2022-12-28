@@ -41,7 +41,7 @@ const R: char = ']';
 const HEAD_COLOR: Color = Color::DarkRed;
 const BODY_COLOR: Color = Color::Red;
 impl BodyPart {
-    fn new(position: Position) -> Self {
+    fn at(position: Position) -> Self {
         BodyPart {
             l_char: L,
             r_char: R,
@@ -50,12 +50,16 @@ impl BodyPart {
             position,
         }
     }
+    fn new() -> Self {
+        BodyPart::at(Position {x: 0, y: 0})
+    }
 }
 
 struct Snek {
     body: Vec<BodyPart>,
     // head: Position,
     direction: Direction,
+    growing: bool,
 }
 const INITIAL_LENGTH: i32 = 3;
 impl Snek {
@@ -63,7 +67,7 @@ impl Snek {
         let mut body: Vec<BodyPart> = Vec::new();
 
         for _ in 0..INITIAL_LENGTH {
-            let body_part = BodyPart::new(Position { x, y });
+            let body_part = BodyPart::at(Position { x, y });
             body.push(body_part);
         }
 
@@ -72,17 +76,13 @@ impl Snek {
         Snek {
             body,
             direction: Direction::Right,
+            growing: false,
         }
     }
 
     fn slither(&mut self, engine: &mut Engine) {
         // current head becomes body part
         self.body[0].color = BODY_COLOR;
-
-        // new head is being created out of the tip of a tail
-        let mut new_head = self.body.pop().unwrap();
-        new_head.color = HEAD_COLOR;
-        new_head.position = self.body[0].position;
 
         // we need to determine if snake changes direction
         if engine.is_key_pressed(KeyCode::Left) && self.direction != Direction::Right {
@@ -97,6 +97,22 @@ impl Snek {
         if engine.is_key_pressed(KeyCode::Down) && self.direction != Direction::Up {
             self.direction = Direction::Down;
         }
+        // or is growing
+        if engine.is_key_pressed(KeyCode::Char('g')) {
+            self.grow();        
+        }        
+
+        // new head is being created
+        let mut new_head = match self.growing {
+            false => self.body.pop().unwrap(),
+            true => {
+                self.growing = false;
+                BodyPart::new()
+            },
+        };
+        new_head.color = HEAD_COLOR;
+        new_head.position = self.body[0].position;
+
 
         // and set the new head accordingly
         match self.direction {
@@ -108,6 +124,10 @@ impl Snek {
 
         // done
         self.body.insert(0, new_head);
+    }
+
+    fn grow(&mut self) {
+        self.growing = true;
     }
 
     fn draw(&self, engine: &mut Engine) {
