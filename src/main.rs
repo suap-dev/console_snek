@@ -1,7 +1,6 @@
 use console_engine::Color;
 use console_engine::ConsoleEngine;
 use console_engine::KeyCode;
-use std::default;
 use std::vec::Vec;
 
 fn main() {
@@ -22,6 +21,7 @@ struct Position {
     y: i32,
 }
 
+#[derive(PartialEq, Eq)]
 enum Direction {
     Up,
     Down,
@@ -33,7 +33,6 @@ enum Direction {
 struct BodyPart {
     l_char: char,
     r_char: char,
-    // fg_color: Color,
     color: Color,
     position: Position,
 }
@@ -51,19 +50,11 @@ impl BodyPart {
             position,
         }
     }
-
-    fn color(&mut self, color: Color) {
-        self.color = color;
-    }
-
-    fn pos(&mut self, position: Position) {
-        self.position = position
-    }
 }
 
 struct Snek {
     body: Vec<BodyPart>,
-    head: Position,
+    // head: Position,
     direction: Direction,
 }
 const INITIAL_LENGTH: i32 = 3;
@@ -76,49 +67,52 @@ impl Snek {
             body.push(body_part);
         }
 
-        body[0].color(HEAD_COLOR);
+        body[0].color = HEAD_COLOR;
 
         Snek {
             body,
-            head: Position { x, y },
             direction: Direction::Right,
         }
     }
 
     fn slither(&mut self, engine: &mut Engine) {
-        let mut new = self.body.pop().unwrap();
+        // current head becomes body part
+        self.body[0].color = BODY_COLOR;
 
-        if engine.is_key_pressed(KeyCode::Left) {
+        // new head is being created out of the tip of a tail
+        let mut new_head = self.body.pop().unwrap();
+        new_head.color = HEAD_COLOR;
+        new_head.position = self.body[0].position;
+
+        // we need to determine if snake changes direction
+        if engine.is_key_pressed(KeyCode::Left) && self.direction != Direction::Right {
             self.direction = Direction::Left;
         }
-        if engine.is_key_pressed(KeyCode::Right) {
+        if engine.is_key_pressed(KeyCode::Right) && self.direction != Direction::Left {
             self.direction = Direction::Right;
         }
-        if engine.is_key_pressed(KeyCode::Up) {
+        if engine.is_key_pressed(KeyCode::Up) && self.direction != Direction::Down {
             self.direction = Direction::Up;
         }
-        if engine.is_key_pressed(KeyCode::Down) {
+        if engine.is_key_pressed(KeyCode::Down) && self.direction != Direction::UP {
             self.direction = Direction::Down;
         }
 
+        // and set the new head accordingly
         match self.direction {
-            Direction::Up => self.head.y -= 1,
-            Direction::Down => self.head.y += 1,
-            Direction::Right => self.head.x += 1,
-            Direction::Left => self.head.x -= 1,
+            Direction::Up => new_head.position.y -= 1,
+            Direction::Down => new_head.position.y += 1,
+            Direction::Right => new_head.position.x += 1,
+            Direction::Left => new_head.position.x -= 1,
         }
 
-        new.pos(self.head);
-        new.color(HEAD_COLOR);
-        for part in &mut self.body {
-            part.color(BODY_COLOR)
-        }
-        self.body.insert(0, new);
+        // done
+        self.body.insert(0, new_head);
     }
 
     fn draw(&self, engine: &mut Engine) {
         for body_part in &self.body {
-            engine.draw_pixel(body_part);
+            engine.draw(body_part);
         }
     }
 }
@@ -131,7 +125,7 @@ impl Engine {
         Engine { c_engine }
     }
 
-    fn draw_pixel(&mut self, pixel: &BodyPart) {
+    fn draw(&mut self, pixel: &BodyPart) {
         self.set_pxl(pixel.position.x, pixel.position.y, &pixel);
     }
 
