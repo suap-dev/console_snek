@@ -1,12 +1,15 @@
 use console_engine::Color;
 use console_engine::ConsoleEngine;
 use console_engine::KeyCode;
+use rand::Rng;
+use rand::rngs::ThreadRng;
 use std::vec::Vec;
 
 fn main() {
     let mut engine = Engine::from(ConsoleEngine::init_fill(8).unwrap());
 
-    let mut snek = Snek::hatch(10, 10);
+    let map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 10, y: 10 });
+    let mut snek = Snek::hatch(map, 10, 10);
 
     for _ in 0..100 {
         snek.slither(&mut engine);
@@ -51,7 +54,7 @@ impl BodyPart {
         }
     }
     fn new() -> Self {
-        BodyPart::at(Position {x: 0, y: 0})
+        BodyPart::at(Position { x: 0, y: 0 })
     }
 }
 
@@ -63,7 +66,7 @@ struct Snek {
 }
 const INITIAL_LENGTH: i32 = 3;
 impl Snek {
-    fn hatch(x: i32, y: i32) -> Self {
+    fn hatch(map: Map, x: i32, y: i32) -> Self {
         let mut body: Vec<BodyPart> = Vec::new();
 
         for _ in 0..INITIAL_LENGTH {
@@ -99,8 +102,8 @@ impl Snek {
         }
         // or is growing
         if engine.is_key_pressed(KeyCode::Char('g')) {
-            self.grow();        
-        }        
+            self.grow();
+        }
 
         // new head is being created
         let mut new_head = match self.growing {
@@ -108,11 +111,10 @@ impl Snek {
             true => {
                 self.growing = false;
                 BodyPart::new()
-            },
+            }
         };
         new_head.color = HEAD_COLOR;
         new_head.position = self.body[0].position;
-
 
         // and set the new head accordingly
         match self.direction {
@@ -165,5 +167,59 @@ impl Engine {
 
     fn is_key_pressed(&mut self, key: KeyCode) -> bool {
         self.c_engine.is_key_pressed(key)
+    }
+}
+
+struct NomSpawner {
+    rng: ThreadRng
+}
+impl NomSpawner {
+    fn spawn_between(&mut self, top_left_corner: Position, bot_right_corner: Position) -> Position {
+        Position {
+            x: self.rng.gen_range(top_left_corner.x..bot_right_corner.x),
+            y: self.rng.gen_range(top_left_corner.y..bot_right_corner.y),
+        }
+    }
+
+    fn spawn(&mut self, map: &Map) -> Position {        
+        let x: i32 = self.rng.gen_range(map.get_min_x()..map.get_max_x());
+        let y: i32 = self.rng.gen_range(map.get_min_y()..map.get_max_y());
+
+        Position { x, y }
+    }
+}
+
+struct Map {
+    top_left_corner: Position,
+    bot_right_corner: Position,
+    nom_spawner: NomSpawner,
+    nom: Position
+}
+impl Map {
+    fn from_coords(top_left_corner: Position, bot_right_corner: Position) -> Self {
+        let mut nom_spawner = NomSpawner{rng: rand::thread_rng()};
+        let nom = nom_spawner.spawn_between(top_left_corner, bot_right_corner);
+        Map {
+            top_left_corner,
+            bot_right_corner,
+            nom_spawner,
+            nom
+        }
+    }
+
+    fn get_min_x(&self) -> i32 {
+        return self.top_left_corner.x;
+    }
+    fn get_max_x(&self) -> i32 {
+        return self.bot_right_corner.x;
+    }
+    fn get_min_y(&self) -> i32 {
+        return self.top_left_corner.y;
+    }
+    fn get_max_y(&self) -> i32 {
+        return self.bot_right_corner.y;
+    }    
+    fn new_nom(&mut self) {
+        self.nom = self.nom_spawner.spawn_between(self.top_left_corner, self.bot_right_corner);
     }
 }
