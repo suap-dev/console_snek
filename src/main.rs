@@ -1,27 +1,27 @@
 use console_engine::Color;
 use console_engine::ConsoleEngine;
 use console_engine::KeyCode;
-use rand::Rng;
 use rand::rngs::ThreadRng;
+use rand::Rng;
 use std::vec::Vec;
 
 fn main() {
     let mut engine = Engine::from(ConsoleEngine::init_fill(8).unwrap());
 
-    let map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 10, y: 10 });
+    let mut map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 10, y: 10 });
     let mut snek = Snek::hatch(&map, 10, 10);
 
     for _ in 0..100 {
-        snek.slither(&mut engine);
+        snek.slither(&mut map, &mut engine);
 
-        snek.draw(&mut engine);
         map.draw(&mut engine);
+        snek.draw(&mut engine);
 
         engine.update_frame();
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 struct Position {
     x: i32,
     y: i32,
@@ -59,9 +59,8 @@ impl Segment {
     }
 }
 
-
-const HEAD_COLOR: Color = Color::DarkGreen;
-const BODY_COLOR: Color = Color::Green;
+const HEAD_COLOR: Color = Color::DarkRed;
+const BODY_COLOR: Color = Color::Red;
 struct Snek {
     body: Vec<Segment>,
     // head: Position,
@@ -75,7 +74,10 @@ impl Snek {
 
         for _ in 0..INITIAL_LENGTH {
             let body_part = Segment::at(
-                Position { x: map.center_x(), y: map.center_y(),},
+                Position {
+                    x: map.center_x(),
+                    y: map.center_y(),
+                },
                 BODY_COLOR,
             );
             body.push(body_part);
@@ -90,7 +92,7 @@ impl Snek {
         }
     }
 
-    fn slither(&mut self, engine: &mut Engine) {
+    fn slither(&mut self, map: &mut Map, engine: &mut Engine) {
         // current head becomes body part
         self.body[0].color = BODY_COLOR;
 
@@ -108,7 +110,7 @@ impl Snek {
             self.direction = Direction::Down;
         }
         // or is growing
-        if engine.is_key_pressed(KeyCode::Char('g')) {
+        if self.munched(map) {
             self.grow();
         }
 
@@ -133,6 +135,15 @@ impl Snek {
 
         // done
         self.body.insert(0, new_head);
+    }
+
+    fn munched(&self, map: &mut Map) -> bool {
+        if self.body[0].position == map.nom_position() {
+            map.new_nom();
+            true
+        } else {
+            false
+        }
     }
 
     fn grow(&mut self) {
@@ -177,9 +188,9 @@ impl Engine {
     }
 }
 
-const NOM_COLOR: Color = Color::DarkRed;
+const NOM_COLOR: Color = Color::Green;
 struct NomSpawner {
-    rng: ThreadRng
+    rng: ThreadRng,
 }
 impl NomSpawner {
     fn spawn_between(&mut self, top_left_corner: Position, bot_right_corner: Position) -> Segment {
@@ -188,11 +199,11 @@ impl NomSpawner {
                 x: self.rng.gen_range(top_left_corner.x..bot_right_corner.x),
                 y: self.rng.gen_range(top_left_corner.y..bot_right_corner.y),
             },
-        NOM_COLOR,
-    )
+            NOM_COLOR,
+        )
     }
 
-    fn spawn(&mut self, map: &Map) -> Position {        
+    fn spawn(&mut self, map: &Map) -> Position {
         let x: i32 = self.rng.gen_range(map.min_x()..map.max_x());
         let y: i32 = self.rng.gen_range(map.min_y()..map.max_y());
 
@@ -204,17 +215,19 @@ struct Map {
     top_left_corner: Position,
     bot_right_corner: Position,
     nom_spawner: NomSpawner,
-    nom: Segment
+    nom: Segment,
 }
 impl Map {
     fn from_coords(top_left_corner: Position, bot_right_corner: Position) -> Self {
-        let mut nom_spawner = NomSpawner{rng: rand::thread_rng()};
+        let mut nom_spawner = NomSpawner {
+            rng: rand::thread_rng(),
+        };
         let nom = nom_spawner.spawn_between(top_left_corner, bot_right_corner);
         Map {
             top_left_corner,
             bot_right_corner,
             nom_spawner,
-            nom
+            nom,
         }
     }
 
@@ -229,16 +242,24 @@ impl Map {
     }
     fn max_y(&self) -> i32 {
         self.bot_right_corner.y
-    }  
+    }
     fn center_x(&self) -> i32 {
-        (self.min_x() + self.max_x())/2
+        (self.min_x() + self.max_x()) / 2
     }
     fn center_y(&self) -> i32 {
-        (self.min_y() + self.max_y())/2
+        (self.min_y() + self.max_y()) / 2
     }
-    
+
     fn new_nom(&mut self) {
-        self.nom = self.nom_spawner.spawn_between(self.top_left_corner, self.bot_right_corner);
+        self.nom = self
+            .nom_spawner
+            .spawn_between(self.top_left_corner, self.bot_right_corner);
+    }
+
+    // we can later generate multiple noms
+    // todo: do it with Vec<...>
+    fn nom_position(&self) -> Position {
+        return self.nom.position;
     }
 
     fn draw(&self, engine: &mut Engine) {
