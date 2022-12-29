@@ -9,11 +9,14 @@ fn main() {
     let mut engine = Engine::from(ConsoleEngine::init_fill(8).unwrap());
 
     let map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 10, y: 10 });
-    let mut snek = Snek::hatch(map, 10, 10);
+    let mut snek = Snek::hatch(&map, 10, 10);
 
     for _ in 0..100 {
         snek.slither(&mut engine);
+
         snek.draw(&mut engine);
+        map.draw(&mut engine);
+
         engine.update_frame();
     }
 }
@@ -33,7 +36,7 @@ enum Direction {
 }
 
 #[derive(Clone)]
-struct BodyPart {
+struct Segment {
     l_char: char,
     r_char: char,
     color: Color,
@@ -41,36 +44,40 @@ struct BodyPart {
 }
 const L: char = '[';
 const R: char = ']';
-const HEAD_COLOR: Color = Color::DarkRed;
-const BODY_COLOR: Color = Color::Red;
-impl BodyPart {
-    fn at(position: Position) -> Self {
-        BodyPart {
+impl Segment {
+    fn at(position: Position, color: Color) -> Self {
+        Segment {
             l_char: L,
             r_char: R,
             // fg_color,
-            color: BODY_COLOR,
+            color: color,
             position,
         }
     }
     fn new() -> Self {
-        BodyPart::at(Position { x: 0, y: 0 })
+        Segment::at(Position { x: 0, y: 0 }, Color::White)
     }
 }
 
+
+const HEAD_COLOR: Color = Color::DarkGreen;
+const BODY_COLOR: Color = Color::Green;
 struct Snek {
-    body: Vec<BodyPart>,
+    body: Vec<Segment>,
     // head: Position,
     direction: Direction,
     growing: bool,
 }
 const INITIAL_LENGTH: i32 = 3;
 impl Snek {
-    fn hatch(map: Map, x: i32, y: i32) -> Self {
-        let mut body: Vec<BodyPart> = Vec::new();
+    fn hatch(map: &Map, x: i32, y: i32) -> Self {
+        let mut body: Vec<Segment> = Vec::new();
 
         for _ in 0..INITIAL_LENGTH {
-            let body_part = BodyPart::at(Position { x, y });
+            let body_part = Segment::at(
+                Position { x: map.center_x(), y: map.center_y(),},
+                BODY_COLOR,
+            );
             body.push(body_part);
         }
 
@@ -110,7 +117,7 @@ impl Snek {
             false => self.body.pop().unwrap(),
             true => {
                 self.growing = false;
-                BodyPart::new()
+                Segment::new()
             }
         };
         new_head.color = HEAD_COLOR;
@@ -147,11 +154,11 @@ impl Engine {
         Engine { c_engine }
     }
 
-    fn draw(&mut self, pixel: &BodyPart) {
-        self.set_pxl(pixel.position.x, pixel.position.y, &pixel);
+    fn draw(&mut self, segment: &Segment) {
+        self.set_pxl(segment.position.x, segment.position.y, &segment);
     }
 
-    fn set_pxl(&mut self, mut x: i32, y: i32, pixel: &BodyPart) {
+    fn set_pxl(&mut self, mut x: i32, y: i32, pixel: &Segment) {
         x *= 2;
         let l = console_engine::pixel::pxl_bg(pixel.l_char, pixel.color);
         let r = console_engine::pixel::pxl_bg(pixel.r_char, pixel.color);
@@ -170,20 +177,24 @@ impl Engine {
     }
 }
 
+const NOM_COLOR: Color = Color::DarkRed;
 struct NomSpawner {
     rng: ThreadRng
 }
 impl NomSpawner {
-    fn spawn_between(&mut self, top_left_corner: Position, bot_right_corner: Position) -> Position {
-        Position {
-            x: self.rng.gen_range(top_left_corner.x..bot_right_corner.x),
-            y: self.rng.gen_range(top_left_corner.y..bot_right_corner.y),
-        }
+    fn spawn_between(&mut self, top_left_corner: Position, bot_right_corner: Position) -> Segment {
+        Segment::at(
+            Position {
+                x: self.rng.gen_range(top_left_corner.x..bot_right_corner.x),
+                y: self.rng.gen_range(top_left_corner.y..bot_right_corner.y),
+            },
+        NOM_COLOR,
+    )
     }
 
     fn spawn(&mut self, map: &Map) -> Position {        
-        let x: i32 = self.rng.gen_range(map.get_min_x()..map.get_max_x());
-        let y: i32 = self.rng.gen_range(map.get_min_y()..map.get_max_y());
+        let x: i32 = self.rng.gen_range(map.min_x()..map.max_x());
+        let y: i32 = self.rng.gen_range(map.min_y()..map.max_y());
 
         Position { x, y }
     }
@@ -193,7 +204,7 @@ struct Map {
     top_left_corner: Position,
     bot_right_corner: Position,
     nom_spawner: NomSpawner,
-    nom: Position
+    nom: Segment
 }
 impl Map {
     fn from_coords(top_left_corner: Position, bot_right_corner: Position) -> Self {
@@ -207,19 +218,35 @@ impl Map {
         }
     }
 
-    fn get_min_x(&self) -> i32 {
-        return self.top_left_corner.x;
+    fn min_x(&self) -> i32 {
+        self.top_left_corner.x
     }
-    fn get_max_x(&self) -> i32 {
-        return self.bot_right_corner.x;
+    fn max_x(&self) -> i32 {
+        self.bot_right_corner.x
     }
-    fn get_min_y(&self) -> i32 {
-        return self.top_left_corner.y;
+    fn min_y(&self) -> i32 {
+        self.top_left_corner.y
     }
-    fn get_max_y(&self) -> i32 {
-        return self.bot_right_corner.y;
-    }    
+    fn max_y(&self) -> i32 {
+        self.bot_right_corner.y
+    }  
+    fn center_x(&self) -> i32 {
+        (self.min_x() + self.max_x())/2
+    }
+    fn center_y(&self) -> i32 {
+        (self.min_y() + self.max_y())/2
+    }
+    
     fn new_nom(&mut self) {
         self.nom = self.nom_spawner.spawn_between(self.top_left_corner, self.bot_right_corner);
+    }
+
+    fn draw(&self, engine: &mut Engine) {
+        // fn draw(&self, engine: &mut Engine) {
+        //     for body_part in &self.body {
+        //         engine.draw(body_part);
+        //     }
+        // }
+        engine.draw(&self.nom);
     }
 }
