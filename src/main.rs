@@ -6,13 +6,15 @@ use rand::Rng;
 use std::vec::Vec;
 
 fn main() {
-    let mut engine = Engine::from(ConsoleEngine::init_fill(8).unwrap());
+    let mut engine = Engine::from(ConsoleEngine::init_fill(6).unwrap());
 
-    let mut map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 20, y: 10 });
+    let mut map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 30, y: 15 });
     let mut snek = Snek::hatch(&map, 5, 10);
 
     loop {
-        if !snek.slither(&mut map, &mut engine) { break; }
+        if !snek.slither(&mut map, &mut engine) {
+            break;
+        }
 
         map.draw(&mut engine);
         snek.draw(&mut engine);
@@ -96,7 +98,7 @@ impl Snek {
         }
     }
 
-    fn slither(&mut self, map: &mut Map, engine: &mut Engine) -> bool{
+    fn slither(&mut self, map: &mut Map, engine: &mut Engine) -> bool {
         // current head becomes body part
         self.body[0].color = BODY_COLOR;
 
@@ -139,7 +141,7 @@ impl Snek {
 
         // done
         self.body.insert(0, new_head);
-        
+
         !(self.hit_wall(map) || self.bit_tail())
     }
 
@@ -189,9 +191,8 @@ impl Engine {
     fn from(c_engine: ConsoleEngine) -> Self {
         Engine { c_engine }
     }
-    
-    fn close(&mut self) {
-    }
+
+    fn close(&mut self) {}
 
     fn draw_segment(&mut self, segment: &Segment) {
         self.set_pxl(segment.position.x, segment.position.y, &segment);
@@ -242,8 +243,12 @@ impl NomSpawner {
     fn spawn_between(&mut self, top_left_corner: Position, bot_right_corner: Position) -> Segment {
         Segment::new_at(
             Position {
-                x: self.rng.gen_range(top_left_corner.x+1..bot_right_corner.x),
-                y: self.rng.gen_range(top_left_corner.y+1..bot_right_corner.y),
+                x: self
+                    .rng
+                    .gen_range(top_left_corner.x + 1..bot_right_corner.x),
+                y: self
+                    .rng
+                    .gen_range(top_left_corner.y + 1..bot_right_corner.y),
             },
             NOM_COLOR,
         )
