@@ -1,3 +1,5 @@
+#![warn(clippy::all, clippy::pedantic)]
+
 use console_engine::Color;
 use console_engine::ConsoleEngine;
 use console_engine::KeyCode;
@@ -9,7 +11,7 @@ fn main() {
     let mut engine = Engine::from(ConsoleEngine::init_fill(6).unwrap());
 
     let mut map = Map::from_coords(Position { x: 2, y: 2 }, Position { x: 30, y: 15 });
-    let mut snek = Snek::hatch(&map, 5, 10);
+    let mut snek = Snek::hatch(&map);
 
     loop {
         if !snek.slither(&mut map, &mut engine) {
@@ -52,7 +54,7 @@ impl Segment {
             l_char: L,
             r_char: R,
             // fg_color,
-            color: color,
+            color,
             position,
         }
     }
@@ -75,7 +77,7 @@ struct Snek {
 }
 const INITIAL_LENGTH: i32 = 3;
 impl Snek {
-    fn hatch(map: &Map, x: i32, y: i32) -> Self {
+    fn hatch(map: &Map) -> Self {
         let mut body: Vec<Segment> = Vec::new();
 
         for _ in 0..INITIAL_LENGTH {
@@ -121,12 +123,11 @@ impl Snek {
         }
 
         // new head is being created
-        let mut new_head = match self.growing {
-            false => self.body.pop().unwrap(),
-            true => {
-                self.growing = false;
-                Segment::new()
-            }
+        let mut new_head = if self.growing {
+            self.growing = false;
+            Segment::new()
+        } else {
+            self.body.pop().unwrap()
         };
         new_head.color = HEAD_COLOR;
         new_head.position = self.body[0].position;
@@ -154,15 +155,10 @@ impl Snek {
         }
     }
     fn hit_wall(&self, map: &Map) -> bool {
-        if self.body[0].position.x == map.min_x()
+        self.body[0].position.x == map.min_x()
             || self.body[0].position.x == map.max_x()
             || self.body[0].position.y == map.min_y()
             || self.body[0].position.y == map.max_y()
-        {
-            true
-        } else {
-            false
-        }
     }
     fn bit_tail(&self) -> bool {
         for tail_part in self.body[1..].into_iter() {
@@ -195,7 +191,7 @@ impl Engine {
     fn close(&mut self) {}
 
     fn draw_segment(&mut self, segment: &Segment) {
-        self.set_pxl(segment.position.x, segment.position.y, &segment);
+        self.set_pxl(segment.position.x, segment.position.y, segment);
     }
 
     fn draw_border(&mut self, left: i32, right: i32, top: i32, bottom: i32, color: Color) {
@@ -210,7 +206,7 @@ impl Engine {
             self.set_pxl(x, top, &wall);
             self.set_pxl(x, bottom, &wall);
         }
-        for y in top + 1..=bottom - 1 {
+        for y in (top + 1)..bottom {
             self.set_pxl(left, y, &wall);
             self.set_pxl(right, y, &wall);
         }
@@ -310,7 +306,7 @@ impl Map {
     // we can later generate multiple noms
     // todo: do it with Vec<...>
     fn nom_position(&self) -> Position {
-        return self.nom.position;
+        self.nom.position
     }
 
     fn draw(&self, engine: &mut Engine) {
